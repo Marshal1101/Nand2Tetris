@@ -42,5 +42,19 @@ CHIP ALU {
         ng; // 1 if (out < 0),  0 otherwise
 
     PARTS:
-   // Put you code here:
+        Mux16(a[0..15]=x[0..15], b[0..15]=false, sel=zx, out[0..15]=tmpx);
+        Not16(in[0..15]=tmpx, out[0..15]=notx);
+        Mux16(a[0..15]=tmpx, b[0..15]=notx, sel=nx, out[0..15]=x16);
+        Mux16(a[0..15]=y[0..15], b[0..15]=false, sel=zy, out[0..15]=tmpy);
+        Not16(in[0..15]=tmpy, out[0..15]=noty);
+        Mux16(a[0..15]=tmpy, b[0..15]=noty, sel=ny, out[0..15]=y16);
+        Add16(a[0..15]=x16, b[0..15]=y16, out[0..15]=addxy);
+        And16(a[0..15]=x16, b[0..15]=y16, out[0..15]=andxy);
+        Mux16(a[0..15]=andxy, b[0..15]=addxy, sel=f, out[0..15]=fxy);
+        Not16(in[0..15]=fxy, out[0..15]=noxy);
+        Mux16(a[0..15]=fxy, b[0..15]=noxy, sel=no, out[0..7]=w1, out[8..15]=w2, out[0..15]=out[0..15], out[15]=ng);
+        Or8Way(in[0..7]=w1, out=tmpzr1);
+        Or8Way(in[0..7]=w2, out=tmpzr2);
+        Or(a=tmpzr1, b=tmpzr2, out=zr0);
+        Not(in=zr0, out=zr);
 }
