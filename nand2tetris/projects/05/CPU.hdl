@@ -25,6 +25,26 @@
  * than to the address resulting from executing the current instruction. 
  */
 
+/**
+Hack CPU(중앙 처리 장치)는
+ALU, A와 D라는 두 개의 레지스터, PC라는 프로그램 카운터로 구성됩니다.
+CPU는 Hack 기계 언어로 작성된 명령을 가져와서 실행하도록 설계되었습니다.
+특히 다음과 같은 기능을 합니다.
+입력된 명령어를 Hack 기계어 사양에 따라 실행합니다.
+언어 사양에서 D와 A는 CPU 상주 레지스터를 나타내고
+M은 A가 주소를 지정하는 외부 메모리 위치,
+즉 Memory[A]를 나타냅니다. inM 입력은 이 위치의 값을 보유합니다.
+현재 명령어가 M에 값을 써야 하는 경우 값은 outM에 배치되고,
+대상 위치의 주소는 addressM 출력에 배치되며 writeM 제어 비트가 어설션됩니다.
+(writeM==0일 때 어떤 값이든 outM에 나타날 수 있습니다).
+outM 및 writeM 출력은 조합적입니다. 
+즉, 현재 명령의 실행에 의해 즉시 영향을 받습니다.
+addressM 및 pc 출력은 클럭됩니다.
+현재 명령 실행의 영향을 받지만 다음 시간 단계에서만 새 값으로 커밋됩니다.
+reset==1이면 CPU는 현재 명령을 실행한 결과 주소가 아닌 주소 0
+(즉, 다음 시간 단계에서 pc가 0으로 설정됨)으로 점프합니다.
+*/
+
 CHIP CPU {
 
     IN  inM[16],         // M value input  (M = contents of RAM[A])
@@ -39,5 +59,83 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    // Put your code here:
+    /** instruction Decoding
+    * 비트인덱스순서: FEDC BA98 7654 3210
+    * MSB=0이면 주소: 0nnn nnnn nnnn nnnn
+    * MSB=1이면 명령: 1xxa cccc ccdd djjj
+    * usage: instruction[idx], instruction[A..B]
+    */
+    
+    /** Mux16 to A
+    */
+    Mux16(a=instruction, b=ALUout16, sel=instruction[15], out=MuxToA16);
+
+    /** A-register
+    * to Mux16toALU
+    * to PC
+    * to addressM(out of CPU)
+    */
+    ARegister(in=MuxToA16, load=writeA, out=Aout16, out[0..14]=addressM);
+
+    /** Mux16 A(or M) to ALU
+    * A(or M) to ALU
+    */
+    Mux16(a=Aout16, b=inM[0..15], sel=instruction[12], out=AMtoMuxToALU16);
+
+    /** D-register
+    * to ALU
+    */
+    DRegister(in=ALUout16, load=writeD, out=DtoALU16);
+
+    /** store ALUout16 in A, D, M
+    * writeA, writeD, writeM
+    */
+    And(a=instruction[3], b=instruction[15], out=writeM);
+    And(a=instruction[4], b=instruction[15], out=writeD);    
+    And(a=instruction[5], b=instruction[15], out=storeA);
+    Not(in=instruction[15], out=AddBit);
+    Or(a=storeA, b=AddBit, out=writeA);
+
+    /** Arithmetic Logical Unit (ALU)
+    * input:
+    * x= D, y= A(a==0) or M(a==1)
+    * zx,nx,zy,ny,f,no = cccccc
+    * out to ALU output, outM (out of CPU)
+    * zr = isZero for jump condition
+    * ng = isNeg for jump condition
+    */
+    ALU(
+        x=DtoALU16, y=AMtoMuxToALU16,
+        zx=instruction[11],
+        nx=instruction[10],
+        zy=instruction[9],
+        ny=instruction[8],
+        f=instruction[7],
+        no=instruction[6],
+        out=ALUout16, zr=isZero, ng=isNeg,
+        out=outM
+    );
+
+    /** Program Counter (PC)
+    * if reset(t)       out(t+1) = 0
+    * else if load(t)   out(t+1) = in(t)
+    * else if inc(t)    out(t+1) = out(t) + 1 (integer addition)
+    * else              out(t+1) = out(t)
+    */
+
+    DMux4Way(
+        in=true, sel[0]=isNeg, sel[1]=isZero,
+        a=P, b=M, c=Z, d=Y
+    );
+    And(a=instruction[0], b=P, out=Pjump);
+    And(a=instruction[1], b=Z, out=Zjump);
+    And(a=instruction[2], b=M, out=Mjump);
+    Or(a=Pjump, b=Zjump, out=PZjump);
+    Or(a=PZjump,b=Mjump, out=PZMjump);
+    And(a=PZMjump, b=instruction[15], out=jump);
+    Not(in=jump, out=notJump);
+    PC(
+        in=AMtoMuxToALU16, load=jump, inc=notJump,
+        reset=reset, out=pcOut, out[0..14]=pc[0..14]
+    );
 }
