@@ -22,10 +22,78 @@
  * Screen and Keyboard chip specifications given in the book.
  */
 
+/**
+    RAM 및 메모리 매핑된 I/O를 포함한 Hack 컴퓨터 메모리의 전체 주소 공간.
+    이 칩은 다음과 같이 읽기 및 쓰기 작업을 용이하게 합니다.
+    읽기: out(t) = 메모리[주소(t)](t)
+    쓰기: if load(t-1) then 메모리[주소(t-1)](t) = in(t-1)
+    칩은 항상 address로 지정된 메모리 위치에 저장된 값을 출력합니다.
+    load==1이면 in 값이 address로 지정된 메모리 위치로 로드됩니다.
+    이 값은 다음 단계 이후부터 out 출력을 통해 사용할 수 있습니다.
+    주소 공간 규칙: 메모리 칩의 상위 16K+8K+1 워드만 사용됩니다.
+    주소>0x6000에 대한 액세스가 유효하지 않습니다.
+    0x4000-0x5FFF 범위의 주소에 액세스하면 화면 메모리 맵에 액세스하게 됩니다.
+    주소 0x6000에 액세스하면 키보드 메모리 맵에 액세스하게 됩니다.
+    이 주소의 동작은 책에 제공된 화면 및 키보드 칩 사양에 설명되어 있습니다.
+*/
+
 CHIP Memory {
     IN in[16], load, address[15];
     OUT out[16];
 
     PARTS:
-    // Put your code here:
+    /** Address Decoding
+    * if address[14]=0:
+    *   if load=1: writeM=1
+    *   else: writeM=0
+    * else:
+    *   if address[13]=0:
+    *       if load=1: writeScn=1
+    *       else: writeScn=0
+    *   else: Keyboard OUT
+    */
+    DMux4Way(
+        in=true, sel[1]=address[14], sel[0]=address[13],
+        a=addBit1, b=addBit2, c=scnBit, d=kbdBit
+    );
+    Or(a=addBit1, b=addBit2, out=addBit);
+    And(a=load, b=addBit, out=writeM);
+    And(a=load, b=scnBit, out=writeScn);
+    And(a=load, b=kbdBit, out=writeKbd);
+
+
+    /** RAM16K (16K: logical address 0x0000~0x3FFF[=0011 1111 1111 1111])
+    * IN  in=in[0..15], load=load, address[14];
+    * OUT out[16];
+    */
+    RAM16K(in=in[0..15], load=writeM, address=address[0..13], out=outM);
+
+
+    /** Screen (8K: logical address 0x4000~0x5FFF[=0101 1111 1111 1111]) 
+    * IN  in[16],    // what to write
+    * load,          // write-enable bit
+    * address[13];   // where to read/write
+    * OUT out[16];   // Screen value at the given address
+    */
+    Screen(in=in[0..15], load=writeScn, address=address[0..12], out=outScn);
+
+
+    /** Keyboard (1Byte: logical address 0x6000[=0110 0000 0000 0000])
+    * OUT out[16];
+    * The ASCII code of the pressed key, 
+    * or 0 if no key is currently pressed, 
+    * or one the special codes listed in Figure 5.5. 
+    */
+    Keyboard(out=outKbd);
+
+
+    /** Mux4Way16 select OUT
+    * IN outM, outScn, outKbd
+    * OUT out[16];
+    */
+    Mux4Way16(
+        a=outM, b=outM, c=outScn, d=outKbd,
+        sel[1]=address[14], sel[0]=address[13],
+        out=out
+    );
 }
