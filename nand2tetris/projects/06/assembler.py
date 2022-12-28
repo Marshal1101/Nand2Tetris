@@ -1,4 +1,3 @@
-# parser.py
 import os, sys, glob
 
 class Parser:
@@ -6,9 +5,11 @@ class Parser:
     def __init__(self):
         print("=========init==========")
         self.dir = os.getcwd()
+        print(f"[System] cd: {self.dir}")
         if len(sys.argv) < 2:
-            print("Error: missing arg, type => \"python3 parser.py (/path/)file.asm\"")
+            print("Error: missing arg, type => \"python3 assembler.py (/path/)file.asm\"")
             return
+        print(sys.argv)
         self.args = sys.argv[1:]
         print("[System] args:", self.args)
         
@@ -17,34 +18,60 @@ class Parser:
         
         self.file = self.argv1_split[-1]
         print("[System] file:", self.file)
-        
+
+        is_finding_one_file = True
         self.path = ""
+        if self.file == "":
+            is_finding_one_file = False
+        elif self.file.find(".asm") == -1:
+            is_finding_one_file = False
+            self.path = self.file
+            self.file == ""
+        
         for i in range(len(self.argv1_split)-1):
             self.path += self.argv1_split[i]
         print("[System] path:", self.path)
 
-        self.file_name, self.file_ext = self.file.split(".")
+        # self.file_name, self.file_ext = self.file.split(".")
         dirlist = glob.glob(self.dir + "/" + self.path + "/*.asm")
-        print(f"[System] finding {self.file} in the path")
-        # print("\n".join(dirlist))
+        print(f"[System] dirlist {dirlist}")
+        if is_finding_one_file:
+            print(f"[System] Now finding {self.file} in the path")
+            # print("\n".join(dirlist))
 
-        exit_flag = True
-        for file in dirlist:
-            print(f"[System] checking {file}")
-            if file.find(self.file) != -1:
-                exit_flag = False
-                break
-        if exit_flag:
-            print("Error: incorrect path or file name input.")
-            return
+            exit_flag = True
+            for file in dirlist:
+                print(f"[System] checking {file}")
+                if file.find(self.file) != -1:
+                    exit_flag = False
+                    break
+            if exit_flag:
+                print("Error: incorrect path or file name input.")
+                return
 
-        print(f"[System] {self.file} is found.")
-        print("[System] file open: READY")
+            dirlist = ["{self.dir}/{self.path}/{self.file}"]
+            print(f"[System] {self.file} is found.")
+            print("[System] file open: READY")
+        else:
+            print(f"[System] {self.path} is found.")
+            print("[System] file open: READY")
 
-        fi = open(f"{self.dir}/{self.path}/{self.file}", 'r')
-        self.lines = fi.readlines()
-        print(f"[System] lines\n {self.lines}")
-        fi.close()
+        self.file_name = ""
+        self.ext = ""
+        for f in dirlist:
+            fsplit = f.split("/")
+            print(f"[System] file path filename {fsplit}")
+            if fsplit[-1].find("\\") != -1:
+                self.file_name, self.ext = fsplit[-1].split("\\")[1].split(".")
+            else:
+                self.file_name, self.ext = fsplit[-1].split(".")
+            print(f"[System] file_name: {self.file_name}")
+            fi = open(f, 'r')
+            self.lines = fi.readlines()
+            print(f"[System] ...READING Machine Language Lines\n {self.lines}")
+            print(f"[System] ...TRANSLATING")
+            self.exe()
+            fi.close()
 
     def exe(self):
         # 0PASS
@@ -112,7 +139,8 @@ class Parser:
         print(f"[System] hack codes finish. \n{bin_code}")
 
         ## write
-        fo = open(self.dir + "/" + self.file_name + ".hack", 'w')
+        print(f"[System] import to:", self.dir + "/" + self.path + "/" + self.file_name + ".hack")
+        fo = open(self.dir + "/" + self.path + "/" + self.file_name + ".hack", 'w')
         fo.write(bin_code)
         fo.close()
 
@@ -280,4 +308,3 @@ class SymbolTable:
 
 if __name__=='__main__':
     asm = Parser()
-    asm.exe()
