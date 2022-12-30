@@ -1,13 +1,16 @@
+# Assembler
+
 import os, sys, glob
 
 class Parser:
     """입력 파일/스트림을 열고 분석할 준비를 한다."""
     def __init__(self):
         print("=========init==========")
+        self.is_ready = False
         self.dir = os.getcwd()
         print(f"[System] cd: {self.dir}")
         if len(sys.argv) < 2:
-            print("Error: missing arg, type => \"python3 assembler.py (/path/)file.asm\"")
+            print("Error: missing arg, type => \"python3 assembler.py (/path/)(file.asm)\"")
             return
         print(sys.argv)
         self.args = sys.argv[1:]
@@ -25,19 +28,26 @@ class Parser:
             is_finding_one_file = False
         elif self.file.find(".asm") == -1:
             is_finding_one_file = False
-            self.path = self.file
             self.file == ""
         
-        for i in range(len(self.argv1_split)-1):
-            self.path += self.argv1_split[i]
-        print("[System] path:", self.path)
-
+        print("[System] path1:", self.path)
+        if not is_finding_one_file: self.path = "/".join(self.argv1_split)
+        else: self.path = "/".join(self.argv1_split[:-1])
+        print("[System] path2:", self.path)
+        print("[System] path3:", self.path)
+        print("[System] full_path:", self.dir + self.path + "/*.asm")
         # self.file_name, self.file_ext = self.file.split(".")
-        dirlist = glob.glob(self.dir + "/" + self.path + "/*.asm")
-        print(f"[System] dirlist {dirlist}")
+        dirlist = glob.glob(self.dir + self.path + "/*.asm")
+        print(f"[System] dirlist1 {dirlist}")
+        
+
+        ## check, is there file in path 
+        if len(dirlist) == 0: 
+            print("[System Error]: invalid Path")
+            return
+        
         if is_finding_one_file:
             print(f"[System] Now finding {self.file} in the path")
-            # print("\n".join(dirlist))
 
             exit_flag = True
             for file in dirlist:
@@ -46,16 +56,18 @@ class Parser:
                     exit_flag = False
                     break
             if exit_flag:
-                print("Error: incorrect path or file name input.")
+                print("[System Error]: invalid Filename")
                 return
 
-            dirlist = ["{self.dir}/{self.path}/{self.file}"]
-            print(f"[System] {self.file} is found.")
+            dirlist = [f"{self.dir}/{self.path}/{self.file}"]
+            print(f"[System] Check {self.file}")
             print("[System] file open: READY")
         else:
-            print(f"[System] {self.path} is found.")
+            print(f"[System] Check {self.path} folder has .asm check.")
             print("[System] file open: READY")
 
+        self.is_ready = True
+        
         self.file_name = ""
         self.ext = ""
         for f in dirlist:
@@ -68,12 +80,14 @@ class Parser:
             print(f"[System] file_name: {self.file_name}")
             fi = open(f, 'r')
             self.lines = fi.readlines()
-            print(f"[System] ...READING Machine Language Lines\n {self.lines}")
-            print(f"[System] ...TRANSLATING")
+            print(f"[System] ...READING Assembly Code Lines\n {self.lines}")
             self.exe()
+            print(f"[System] ...FINISH")
             fi.close()
 
     def exe(self):
+        if not self.is_ready: return
+        print(f"[System] ...TRANSLATING")
         # 0PASS
         self.commands = []
         for line in self.lines:
@@ -136,11 +150,11 @@ class Parser:
 
         print("[System] 2PASS finish")
         print(f"[System] symbol table(dictionary): {symbolTable.table}")
-        print(f"[System] hack codes finish. \n{bin_code}")
+        print(f"[System] hack codes translated. \n{bin_code}")
 
         ## write
-        print(f"[System] import to:", self.dir + "/" + self.path + "/" + self.file_name + ".hack")
-        fo = open(self.dir + "/" + self.path + "/" + self.file_name + ".hack", 'w')
+        print(f"[System] import to:", self.dir + self.path + "/" + self.file_name + ".hack")
+        fo = open(self.dir + self.path + "/" + self.file_name + ".hack", 'w')
         fo.write(bin_code)
         fo.close()
 
