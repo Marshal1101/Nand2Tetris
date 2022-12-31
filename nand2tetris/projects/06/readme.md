@@ -16,3 +16,9 @@
 >after annotation symbol (//), the line is ignored.
 
 ### This completes the Hack machine language specification.
+
+---
+# HOW TO EXECUTE
+```cmd
+python assembler.py "source: dir or file path"
+```
