@@ -141,7 +141,7 @@ class Parser:
                     else:
                         symbolTable.addEntry(com)
                         bin_code += format(symbolTable.getAddress(com), 'b').zfill(16) + "\n"
-            else:
+            else: #"C_COMMAND"
                 bin_code += "111"
                 bin_code += symToCode.comp(self.comp())
                 bin_code += symToCode.dest(self.dest())
